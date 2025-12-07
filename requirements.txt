@@ -1,6 +1,8 @@
-fastapi==0.110.0
-uvicorn==0.29.0
+# Fix 1: Removed FastAPI and Uvicorn, as Streamlit apps run differently.
+# fastapi==0.110.0
+# uvicorn==0.29.0
+streamlit==1.36.0  # Add Streamlit itself! This is crucial.
 transformers==4.43.3
 huggingface-hub==0.26.2
-torch==2.1.2
+torch # Fix 2: Changed to allow pip to find a compatible version (likely 2.9.1+ for Python 3.13)
 gradio==4.19.2
