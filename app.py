@@ -1,31 +1,63 @@
-# Force correct huggingface-hub version at runtime (optional safety)
-import os
-os.system("pip install huggingface-hub==0.26.2 --no-cache-dir")
-
+import streamlit as st
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
-import gradio as gr
+# Note: Gradio is not needed here anymore.
 
-# Load model (using a small CPU-friendly model for testing)
-model_name = "gpt2"  # you can change to your preferred model
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name)
+# --- 1. Model Loading ---
 
-def generate_text(prompt):
+# Use Streamlit's caching decorator for resource-heavy objects like models
+@st.cache_resource
+def load_model_and_tokenizer():
+    # Load model (using a small CPU-friendly model for testing)
+    model_name = "gpt2"
+    
+    # Inform the user what's happening
+    st.info(f"Loading model: {model_name}. This happens once.")
+    
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    # Using 'cpu' to avoid resource errors unless you have a paid GPU plan
+    model = AutoModelForCausalLM.from_pretrained(model_name)
+    return tokenizer, model
+
+# Load resources (will only run once due to the cache decorator)
+tokenizer, model = load_model_and_tokenizer()
+
+def generate_text(prompt, max_length=50):
     inputs = tokenizer(prompt, return_tensors="pt")
+    
+    # Ensure the model is moved to the appropriate device if needed, 
+    # though 'gpt2' usually runs fine on CPU for small requests.
+    
     with torch.no_grad():
-        outputs = model.generate(**inputs, max_new_tokens=50)
+        # Set max_new_tokens for generation limit
+        outputs = model.generate(**inputs, max_new_tokens=max_length)
+        
     return tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-# Gradio interface
-iface = gr.Interface(
-    fn=generate_text,
-    inputs=gr.Textbox(lines=2, placeholder="Enter prompt..."),
-    outputs=gr.Textbox(label="Generated Text"),
-    title="My Personal AI"
+# --- 2. Streamlit Interface ---
+
+st.title("🤖 My Personal AI Demo")
+st.markdown("Enter a prompt and hit the button to generate text using the **GPT-2** model.")
+
+# Create the input area
+prompt_input = st.text_area(
+    "Enter your prompt:", 
+    placeholder="What are the three best ways to learn Python?",
+    height=100
 )
 
-if __name__ == "__main__":
-    iface.launch(server_name="0.0.0.0", server_port=7860)
+# Create the generate button
+if st.button("Generate Text"):
+    if prompt_input:
+        # Show a spinner while the model is running
+        with st.spinner('Generating response...'):
+            generated_text = generate_text(prompt_input)
+            
+            # Display the result
+            st.subheader("Generated Response:")
+            st.success(generated_text)
+    else:
+        st.warning("Please enter a prompt to generate text.")
 
-
+# The Gradio launch block (if __name__ == "__main__": iface.launch(...)) is removed. 
+# Streamlit Cloud runs the script directly.
